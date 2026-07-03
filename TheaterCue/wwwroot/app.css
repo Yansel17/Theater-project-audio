@@ -575,12 +575,13 @@ button {
 /* ── Splitter ──────────────────────────────────────────────────────── */
 .cue-workspace {
     display: flex;
+    justify-content: center;
     flex: 1;
     overflow: hidden;
 }
 
 .cue-column {
-    flex: 0 0 50%;
+    flex: 0 0 49%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
