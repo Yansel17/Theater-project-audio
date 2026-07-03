@@ -29,6 +29,7 @@ Aplicación de escritorio para gestión y reproducción de cues de audio en prod
 
 ## 🏗️ Estructura del Proyecto
 
+```text
 TheaterCue-Solution/
 ├── TheaterCue/                          # UI — .NET MAUI Blazor Hybrid
 │   ├── Components/
@@ -68,7 +69,7 @@ TheaterCue-Solution/
 │
 └── TheaterCue.AudioPoc/                 # Prueba de concepto original (consola)
     └── Program.cs
-
+```
 ---
 
 ## ✨ Funcionalidades
