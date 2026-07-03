@@ -1,0 +1,318 @@
+﻿@using TheaterCue.Application
+@using TheaterCue.Domain
+@implements IAsyncDisposable
+@inject IAudioEngine AudioEngine
+@inject NavigationManager Nav
+@inject ShowStateService ShowState
+
+<div class="cue-card">
+    <div class="cue-card__header">
+        <div class="cue-card__drag-handle" title="Arrastrar pista">⋮⋮</div>
+        @if (_isEditing)
+        {
+            <input class="cue-card__name-input"
+                   @bind="_trackName"
+                   @onblur="OnNameConfirm"
+                   @onkeydown="OnNameKeyDown"
+                   @ref="_nameInput" />
+        }
+        else
+        {
+            <span class="cue-card__name">@_trackName</span>
+            <button class="btn-edit" title="Editar nombre" @onclick="OnNameEdit">✏</button>
+        }
+        <span class="cue-card__time">
+            @((_isSeeking ? _seekPreviewTime : _snapshot.CurrentTime).ToString(@"mm\:ss")) /
+            @_snapshot.Duration.ToString(@"mm\:ss")
+        </span>
+    </div>
+
+    <div class="cue-card__progress">
+        <input id="seek-@Track.Id"
+               type="range"
+               min="0" max="100" step="0.1"
+               value="@_sliderValue.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)"
+               disabled="@_seekLocked"
+               @oninput="OnSeekInput"
+               @onchange="OnSeekCommit" />
+        <button @onclick="() => _seekLocked = !_seekLocked"
+                title="@(_seekLocked ? "Desbloquear posición" : "Bloquear posición")">
+            @(_seekLocked ? "🔒" : "🔓")
+        </button>
+    </div>
+
+    <div class="cue-card__meter">
+        <div class="meter__rms" style="width: @(_rmsPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+        <div class="meter__peak" style="left: @(_peakPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+    </div>
+
+    @if (_loadError is not null)
+    {
+        <div class="cue-card__error">⚠ @_loadError</div>
+    }
+
+    <div class="cue-card__controls">
+        <button title="Editor de automatización" @onclick="OnOpenEnvelopeEditor">📈</button>
+        <button title="Eliminar pista" @onclick="OnRemoveClick">🗑</button>
+        <button title="Cargar archivo de audio" @onclick="OnPickFile">📂</button>
+        <button title="@(_snapshot.State == PlaybackState.Playing ? "Pausar" : "Reproducir")" @onclick="OnPlayPause">
+            @(_snapshot.State == PlaybackState.Playing ? "⏸" : "▶")
+        </button>
+        <button title="Detener" @onclick="OnStop">⏹</button>
+        <button title="Fade In (5s)" @onclick="OnFadeIn">↑ Fade In</button>
+        <button title="Fade Out (8s)" @onclick="OnFadeOut">↓ Fade Out</button>
+    </div>
+
+    <div class="cue-card__volume">
+        <label>Vol</label>
+        <input type="range"
+               min="0" max="1" step="0.01"
+               value="@_volume"
+               @oninput="OnVolumeInput" />
+        <span>@((int)(_volume * 100))%</span>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public CueTrack Track { get; set; } = default!;
+    [Parameter] public EventCallback<Guid> OnRemove { get; set; }
+    [Parameter] public bool UnloadOnDispose { get; set; } = true;
+
+    private PlaybackSnapshot _snapshot = PlaybackSnapshot.NotLoaded;
+    private double _sliderValue = 0;
+    private double _peakPercent = 0;
+    private double _rmsPercent = 0;
+    private float _volume = 1.0f;
+    private string? _loadError = null;
+    private bool _isSeeking = false;
+    private bool _seekLocked = true;
+    private bool _isEditing = false;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+    private TimeSpan _seekPreviewTime = TimeSpan.Zero;
+    private string _filePath = string.Empty;
+    private string _trackName = string.Empty;
+    private ElementReference _nameInput;
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource _cts = new();
+
+
+    protected override void OnInitialized()
+    {
+        _filePath = Track.FilePath;
+        _trackName = Track.Name;
+
+        if (!string.IsNullOrEmpty(_filePath))
+            AudioEngine.LoadTrack(Track.Id, _filePath);
+
+        AudioEngine.TrackCompleted += OnTrackCompleted;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (string.IsNullOrEmpty(_filePath))
+        {
+            _filePath = Track.FilePath;
+            _trackName = Track.Name;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _timer = new PeriodicTimer(TimeSpan.FromMilliseconds(33));
+
+        try
+        {
+            while (await _timer.WaitForNextTickAsync(_cts.Token))
+            {
+                if (_cts.IsCancellationRequested) break;
+
+                _snapshot = AudioEngine.GetSnapshot(Track.Id);
+
+                if (!_isSeeking)
+                {
+                    var progress = _snapshot.Duration.TotalSeconds > 0
+                        ? _snapshot.CurrentTime.TotalSeconds / _snapshot.Duration.TotalSeconds * 100
+                        : 0;
+                    _sliderValue = progress;
+                }
+
+                _peakPercent = Math.Min(_snapshot.PeakLevel * 100 * 3, 100);
+                _rmsPercent = Math.Min(_snapshot.RmsLevel * 100 * 3, 100);
+
+                if (_snapshot.State == PlaybackState.Playing)
+                    _volume = _snapshot.EnvelopeVolume;
+
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException) { }
+    }
+
+    private void OnSeekInput(ChangeEventArgs e)
+    {
+        if (_seekLocked) return;
+        if (!double.TryParse(e.Value?.ToString(),
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var v)) return;
+
+        _isSeeking = true;
+        _sliderValue = v;
+        _seekPreviewTime = TimeSpan.FromSeconds(v / 100.0 * _snapshot.Duration.TotalSeconds);
+    }
+
+    private async Task OnSeekCommit(ChangeEventArgs e)
+    {
+        if (_seekLocked) return;
+        if (!double.TryParse(e.Value?.ToString(),
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var v)) return;
+
+        _sliderValue = v;
+        _seekPreviewTime = TimeSpan.FromSeconds(v / 100.0 * _snapshot.Duration.TotalSeconds);
+        AudioEngine.Seek(Track.Id, _seekPreviewTime);
+
+        await Task.Delay(200);
+        _isSeeking = false;
+
+        // Forzar el valor visual del slider vía JS
+        await JS.InvokeVoidAsync("seekHelpers.setSliderValue", $"seek-{Track.Id}", _sliderValue);
+    }
+
+    private void OnPlayPause()
+    {
+        if (_snapshot.State == PlaybackState.Playing)
+            AudioEngine.Pause(Track.Id);
+        else
+            AudioEngine.Play(Track.Id);
+    }
+
+    private void OnStop()
+    {
+        AudioEngine.Stop(Track.Id);
+    }
+
+    private void OnFadeIn()
+    {
+        var current = _snapshot.CurrentTime;
+        var envelope = new VolumeEnvelope(
+        [
+            new AutomationNode(current, _volume),
+            new AutomationNode(current + TimeSpan.FromSeconds(ShowState.GlobalFadeInSeconds), 1.0f),
+    ]);
+        AudioEngine.SetEnvelope(Track.Id, envelope);
+        AudioEngine.SetManualVolume(Track.Id, 1.0f);
+    }
+
+    private void OnFadeOut()
+    {
+        var current = _snapshot.CurrentTime;
+        var envelope = new VolumeEnvelope(
+        [
+            new AutomationNode(current, _volume),
+            new AutomationNode(current + TimeSpan.FromSeconds(ShowState.GlobalFadeOutSeconds), 0.0f),
+    ]);
+        AudioEngine.SetEnvelope(Track.Id, envelope);
+        AudioEngine.SetManualVolume(Track.Id, 1.0f);
+    }
+
+    private void OnVolumeInput(ChangeEventArgs e)
+    {
+        if (float.TryParse(e.Value?.ToString(),
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var v))
+        {
+            _volume = v;
+
+            // Cancelar cualquier fade activo: reemplazar la envolvente
+            // con una plana al volumen actual. El operador tiene control.
+            AudioEngine.SetEnvelope(Track.Id, VolumeEnvelope.Empty);
+            AudioEngine.SetManualVolume(Track.Id, _volume);
+        }
+    }
+
+    private async Task OnPickFile()
+    {
+        var result = await FilePicker.PickAsync(PickOptions.Default);
+        if (result is null) return;
+
+        var ext = Path.GetExtension(result.FileName).ToLowerInvariant();
+        if (ext is not (".mp3" or ".wav" or ".flac" or ".ogg" or ".aac"))
+        {
+            _loadError = "Formato no soportado.";
+            return;
+        }
+
+        try
+        {
+            _loadError = null;
+            _filePath = result.FullPath;
+            _trackName = Path.GetFileNameWithoutExtension(result.FileName);
+            Track.FilePath = _filePath;
+            Track.Name = _trackName;
+            AudioEngine.LoadTrack(Track.Id, _filePath);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _loadError = ex.Message;
+            _filePath = string.Empty;
+            _trackName = Track.Name;
+        }
+    }
+
+    private async Task OnRemoveClick()
+        => await OnRemove.InvokeAsync(Track.Id);
+
+    private void OnOpenEnvelopeEditor()
+        => Nav.NavigateTo($"/envelope/{Track.Id}");
+
+    private async Task OnNameEdit()
+    {
+        _isEditing = true;
+        await Task.Yield();
+        await _nameInput.FocusAsync();
+    }
+
+    private void OnNameConfirm()
+    {
+        if (string.IsNullOrWhiteSpace(_trackName))
+            _trackName = "Sin nombre";
+        _isEditing = false;
+    }
+
+    private void OnNameKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            OnNameConfirm();
+        else if (e.Key == "Escape")
+        {
+            _trackName = string.IsNullOrEmpty(_filePath) ? Track.Name : _trackName;
+            _isEditing = false;
+        }
+    }
+
+    private void OnTrackCompleted(object? sender, Guid trackId)
+    {
+        if (trackId != Track.Id) return;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        AudioEngine.TrackCompleted -= OnTrackCompleted;
+
+        if (!_cts.IsCancellationRequested)
+            await _cts.CancelAsync();
+
+        _timer?.Dispose();
+        _cts.Dispose();
+
+        if (UnloadOnDispose)
+            AudioEngine.UnloadTrack(Track.Id);
+    }
+}

@@ -1,0 +1,105 @@
+﻿@using TheaterCue.Domain
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div class="cue-workspace" id="main-workspace">
+    <div class="cue-column" data-column-index="0">
+        <h2 class="cue-column__title">Música Principal</h2>
+        <div class="cue-grid">
+            @foreach (var track in GetTracksForColumn(0))
+            {
+                <div @key="track.Id"
+                     class="cue-card-wrapper"
+                     data-track-id="@track.Id">
+                    <CuePlayerCard Track="track" OnRemove="OnRemove" UnloadOnDispose="false" />
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="cue-splitter"></div>
+
+    <div class="cue-column" data-column-index="1">
+        <h2 class="cue-column__title">Efectos de Sonido (SFX)</h2>
+        <div class="cue-grid">
+            @foreach (var track in GetTracksForColumn(1))
+            {
+                <div @key="track.Id"
+                     class="cue-card-wrapper"
+                     data-track-id="@track.Id">
+                    <CuePlayerCard Track="track" OnRemove="OnRemove" UnloadOnDispose="false" />
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public List<CueTrack> Tracks { get; set; } = [];
+    [Parameter] public EventCallback<Guid> OnRemove { get; set; }
+
+    private DotNetObjectReference<CueGrid>? _dotNetRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("dragDrop.init", _dotNetRef);
+    }
+
+    private IEnumerable<CueTrack> GetTracksForColumn(int column) =>
+        Tracks.Where(t => t.Position.Column == column).OrderBy(t => t.Position.Row);
+
+    [JSInvokable]
+    public void DropOnTrack(string draggedIdStr, string targetIdStr)
+    {
+        if (!Guid.TryParse(draggedIdStr, out var draggedId)) return;
+        if (!Guid.TryParse(targetIdStr, out var targetId)) return;
+
+        var dragged = Tracks.FirstOrDefault(t => t.Id == draggedId);
+        var target = Tracks.FirstOrDefault(t => t.Id == targetId);
+        if (dragged is null || target is null) return;
+
+        // Mover a la columna del destino
+        dragged.Position = new GridPosition(target.Position.Row, target.Position.Column);
+
+        // Reordenar dentro de la columna
+        Tracks.Remove(dragged);
+        int targetIndex = Tracks.IndexOf(target);
+        Tracks.Insert(targetIndex, dragged);
+
+        // Recalcular Row de todas las tarjetas en las columnas afectadas
+        RecalculateRows();
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void DropOnColumn(string draggedIdStr, int column)
+    {
+        if (!Guid.TryParse(draggedIdStr, out var draggedId)) return;
+
+        var dragged = Tracks.FirstOrDefault(t => t.Id == draggedId);
+        if (dragged is null) return;
+
+        var lastRow = Tracks.Where(t => t.Position.Column == column).Count();
+        dragged.Position = new GridPosition(lastRow, column);
+
+        RecalculateRows();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void RecalculateRows()
+    {
+        for (int col = 0; col <= 1; col++)
+        {
+            int row = 0;
+            foreach (var track in Tracks.Where(t => t.Position.Column == col))
+                track.Position = new GridPosition(row++, col);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _dotNetRef?.Dispose();
+    }
+}

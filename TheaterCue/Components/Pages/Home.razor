@@ -1,0 +1,141 @@
+﻿@page "/"
+@using TheaterCue.Domain
+@using TheaterCue.Application
+@inject IProjectRepository ProjectRepository
+@inject ShowStateService ShowState
+@inject IAudioEngine AudioEngine
+@inject CommunityToolkit.Maui.Storage.IFileSaver FileSaver
+
+<div class="home-toolbar">
+    <button title="Nuevo proyecto" @onclick="OnNewProject">🔄 Nuevo</button>
+    <button title="Agregar pista de música" @onclick="() => OnAddTrack(0)">＋ Música</button>
+    <button title="Agregar efecto de sonido" @onclick="() => OnAddTrack(1)">＋ SFX</button>
+    <button title="Guardar proyecto" @onclick="OnSaveProject">💾 Guardar</button>
+    <button title="Abrir proyecto" @onclick="OnOpenProject">📂 Abrir</button>
+    <button title="Ajustes Globales" @onclick="() => _showGlobalSettings = true">⚙ Ajustes del Show</button>
+    @if (ShowState.ProjectName is not null)
+    {
+        <span class="toolbar-project-name">@ShowState.ProjectName</span>
+    }
+    @if (_showGlobalSettings)
+    {
+        <div class="cue-modal-overlay" @onclick="() => _showGlobalSettings = false">
+            <div class="cue-modal-content" @onclick:stopPropagation="true">
+                <h3>⚙ Ajustes Globales del Show</h3>
+
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <label>Fade In Global (segundos)</label>
+                        <input type="number" min="0.5" max="60" step="0.5" @bind="ShowState.GlobalFadeInSeconds" />
+                    </div>
+
+                    <div class="setting-item">
+                        <label>Fade Out Global (segundos)</label>
+                        <input type="number" min="0.5" max="60" step="0.5" @bind="ShowState.GlobalFadeOutSeconds" />
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button @onclick="() => _showGlobalSettings = false">Listo</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<CueGrid Tracks="ShowState.Tracks" OnRemove="OnRemoveTrack" />
+
+@code {
+    private bool _showGlobalSettings = false;
+
+    private void OnNewProject()
+    {
+        // Descarga todos los tracks activos del engine
+        foreach (var track in ShowState.Tracks)
+            AudioEngine.UnloadTrack(track.Id);
+
+        ShowState.Tracks = [];
+        ShowState.ProjectName = "Nuevo Show";
+        ShowState.CurrentFilePath = null;
+    }
+
+    private void OnAddTrack(int column)
+    {
+        var row = ShowState.Tracks.Count(t => t.Position.Column == column);
+        ShowState.Tracks.Add(new CueTrack
+        {
+            Id = Guid.NewGuid(),
+            Name = column == 0 ? "Nueva Música" : "Nuevo SFX",
+            FilePath = string.Empty,
+            Position = new GridPosition(row, column)
+        });
+    }
+
+    private void OnRemoveTrack(Guid trackId)
+    {
+        AudioEngine.UnloadTrack(trackId);
+        var track = ShowState.Tracks.FirstOrDefault(t => t.Id == trackId);
+        if (track is not null)
+            ShowState.Tracks.Remove(track);
+    }
+
+    private async Task OnSaveProject()
+    {
+        var project = new ShowProject
+        {
+            Name = ShowState.ProjectName,
+            Tracks = ShowState.Tracks,
+            // --- NUEVO ---
+            GlobalFadeInSeconds = ShowState.GlobalFadeInSeconds,
+            GlobalFadeOutSeconds = ShowState.GlobalFadeOutSeconds
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(project,
+            new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
+
+        var result = await FileSaver.SaveAsync(
+            ShowState.ProjectName + ".cueshow",
+            stream,
+            CancellationToken.None);
+
+        if (result.IsSuccessful)
+        {
+            ShowState.CurrentFilePath = result.FilePath;
+        }
+    }
+
+    private async Task OnOpenProject()
+    {
+        var result = await FilePicker.PickAsync(PickOptions.Default);
+        if (result is null) return;
+
+        try
+        {
+            var project = await ProjectRepository.LoadAsync(result.FullPath);
+
+            foreach (var track in ShowState.Tracks)
+                AudioEngine.UnloadTrack(track.Id);
+
+            // Nueva instancia de lista para forzar re-render completo
+            ShowState.Tracks = project.Tracks.ToList();
+
+            // EL FIX: Leer el nombre del archivo sin el ".cueshow" en lugar de project.Name
+            ShowState.ProjectName = Path.GetFileNameWithoutExtension(result.FullPath);
+
+            ShowState.CurrentFilePath = result.FullPath;
+
+            // --- NUEVO ---
+            ShowState.GlobalFadeInSeconds = project.GlobalFadeInSeconds;
+            ShowState.GlobalFadeOutSeconds = project.GlobalFadeOutSeconds;
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"ERROR al abrir proyecto: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+}

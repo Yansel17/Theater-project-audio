@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="TheaterCue.Application/TheaterCue.Application.csproj" />
+  <Project Path="TheaterCue.Domain/TheaterCue.Domain.csproj" />
+  <Project Path="TheaterCue.Infrastructure.Audio/TheaterCue.Infrastructure.Audio.csproj" />
+  <Project Path="TheaterCue/TheaterCue.UI.csproj">
+    <Deploy Solution="Debug|*" />
+  </Project>
+</Solution>
