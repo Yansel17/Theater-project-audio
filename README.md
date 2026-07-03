@@ -30,43 +30,44 @@ Aplicación de escritorio para gestión y reproducción de cues de audio en prod
 ## 🏗️ Estructura del Proyecto
 
 TheaterCue-Solution/
-├── TheaterCue/                      # UI — .NET MAUI Blazor Hybrid
+├── TheaterCue/                          # UI — .NET MAUI Blazor Hybrid
 │   ├── Components/
 │   │   ├── Pages/
-│   │   │   ├── Home.razor           # Grid principal de cues
-│   │   │   └── EnvelopeEditor.razor # Editor de automatización de volumen
+│   │   │   ├── Home.razor               # Grid principal de cues
+│   │   │   └── EnvelopeEditor.razor     # Editor de automatización de volumen
 │   │   ├── Layout/
-│   │   │   ├── MainLayout.razor
-│   │   │   └── NavMenu.razor
-│   │   ├── CueGrid.razor            # Grid de tarjetas con drag & drop
-│   │   └── CuePlayerCard.razor      # Tarjeta individual de pista
+│   │   │   └── MainLayout.razor
+│   │   ├── CueGrid.razor                # Grid de tarjetas con drag & drop
+│   │   └── CuePlayerCard.razor          # Tarjeta individual de pista
 │   └── wwwroot/
 │       ├── css/app.css
+│       ├── images/
+│       │   └── logo-unibe.png
 │       └── js/
-│           ├── seek.js              # Control de posición del slider
-│           └── dragdrop.js          # Drag & drop y splitter
+│           ├── seek.js                  # Control de posición del slider
+│           └── dragdrop.js              # Drag & drop y splitter
 │
-├── TheaterCue.Domain/               # Entidades del dominio
+├── TheaterCue.Domain/                   # Entidades del dominio
 │   ├── CueTrack.cs
 │   ├── VolumeEnvelope.cs
 │   ├── AutomationNode.cs
 │   ├── GridPosition.cs
 │   └── ShowProject.cs
 │
-├── TheaterCue.Application/          # Contratos e interfaces
+├── TheaterCue.Application/              # Contratos e interfaces
 │   ├── IAudioEngine.cs
 │   ├── IProjectRepository.cs
 │   ├── PlaybackSnapshot.cs
 │   ├── PlaybackState.cs
 │   └── ShowStateService.cs
 │
-├── TheaterCue.Infrastructure.Audio/ # Implementaciones de NAudio
+├── TheaterCue.Infrastructure.Audio/     # Implementaciones de NAudio
 │   ├── NAudioEngine.cs
 │   ├── EnvelopeSampleProvider.cs
 │   └── JsonProjectRepository.cs
 │
-└── TheaterCue.AudioPoc/             # Prueba de concepto original (consola)
-└── Program.cs
+└── TheaterCue.AudioPoc/                 # Prueba de concepto original (consola)
+    └── Program.cs
 
 ---
 
