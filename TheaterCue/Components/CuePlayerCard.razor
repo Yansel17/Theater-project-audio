@@ -2,10 +2,9 @@
 @using TheaterCue.Domain
 @implements IAsyncDisposable
 @inject IAudioEngine AudioEngine
-@inject NavigationManager Nav
 @inject ShowStateService ShowState
 
-<div class="cue-card">
+<div class="cue-card cue-card--@_snapshot.State.ToString().ToLower()">
     <div class="cue-card__header">
         <div class="cue-card__drag-handle" title="Arrastrar pista">⋮⋮</div>
         @if (_isEditing)
@@ -52,15 +51,19 @@
     }
 
     <div class="cue-card__controls">
-        <button title="Editor de automatización" @onclick="OnOpenEnvelopeEditor">📈</button>
-        <button title="Eliminar pista" @onclick="OnRemoveClick">🗑</button>
+        <button title="Editor de automatización — Funcionalidad en desarrollo"
+                disabled="true"
+                style="opacity: 0.4; cursor: not-allowed;">
+            📈
+        </button>
+        <button title="Eliminar pista" @onclick="() => _confirmRemove = true">🗑</button>
         <button title="Cargar archivo de audio" @onclick="OnPickFile">📂</button>
         <button title="@(_snapshot.State == PlaybackState.Playing ? "Pausar" : "Reproducir")" @onclick="OnPlayPause">
             @(_snapshot.State == PlaybackState.Playing ? "⏸" : "▶")
         </button>
         <button title="Detener" @onclick="OnStop">⏹</button>
-        <button title="Fade In (5s)" @onclick="OnFadeIn">↑ Fade In</button>
-        <button title="Fade Out (8s)" @onclick="OnFadeOut">↓ Fade Out</button>
+        <button title="Fade In (@(ShowState.GlobalFadeInSeconds)s)" @onclick="OnFadeIn">↑ Fade In</button>
+        <button title="Fade Out (@(ShowState.GlobalFadeOutSeconds)s)" @onclick="OnFadeOut">↓ Fade Out</button>
     </div>
 
     <div class="cue-card__volume">
@@ -73,10 +76,18 @@
     </div>
 </div>
 
+<ConfirmDialog Visible="_confirmRemove"
+               Message="@ConfirmMessage"
+               ConfirmLabel="Eliminar"
+               OnConfirm="OnRemoveClick"
+               OnCancel="() => _confirmRemove = false" />
+
 @code {
     [Parameter, EditorRequired] public CueTrack Track { get; set; } = default!;
     [Parameter] public EventCallback<Guid> OnRemove { get; set; }
+    [Parameter] public EventCallback<Guid> OnOpenEnvelope { get; set; }
     [Parameter] public bool UnloadOnDispose { get; set; } = true;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
 
     private PlaybackSnapshot _snapshot = PlaybackSnapshot.NotLoaded;
     private double _sliderValue = 0;
@@ -87,14 +98,13 @@
     private bool _isSeeking = false;
     private bool _seekLocked = true;
     private bool _isEditing = false;
-    [Inject] private IJSRuntime JS { get; set; } = default!;
+    private bool _confirmRemove = false;
     private TimeSpan _seekPreviewTime = TimeSpan.Zero;
     private string _filePath = string.Empty;
     private string _trackName = string.Empty;
     private ElementReference _nameInput;
     private PeriodicTimer? _timer;
     private CancellationTokenSource _cts = new();
-
 
     protected override void OnInitialized()
     {
@@ -132,14 +142,13 @@
 
                 if (!_isSeeking)
                 {
-                    var progress = _snapshot.Duration.TotalSeconds > 0
+                    _sliderValue = _snapshot.Duration.TotalSeconds > 0
                         ? _snapshot.CurrentTime.TotalSeconds / _snapshot.Duration.TotalSeconds * 100
                         : 0;
-                    _sliderValue = progress;
                 }
 
                 _peakPercent = Math.Min(_snapshot.PeakLevel * 100 * 3, 100);
-                _rmsPercent = Math.Min(_snapshot.RmsLevel * 100 * 3, 100);
+                _rmsPercent  = Math.Min(_snapshot.RmsLevel * 100 * 3, 100);
 
                 if (_snapshot.State == PlaybackState.Playing)
                     _volume = _snapshot.EnvelopeVolume;
@@ -178,8 +187,6 @@
 
         await Task.Delay(200);
         _isSeeking = false;
-
-        // Forzar el valor visual del slider vía JS
         await JS.InvokeVoidAsync("seekHelpers.setSliderValue", $"seek-{Track.Id}", _sliderValue);
     }
 
@@ -191,10 +198,7 @@
             AudioEngine.Play(Track.Id);
     }
 
-    private void OnStop()
-    {
-        AudioEngine.Stop(Track.Id);
-    }
+    private void OnStop() => AudioEngine.Stop(Track.Id);
 
     private void OnFadeIn()
     {
@@ -203,7 +207,7 @@
         [
             new AutomationNode(current, _volume),
             new AutomationNode(current + TimeSpan.FromSeconds(ShowState.GlobalFadeInSeconds), 1.0f),
-    ]);
+        ]);
         AudioEngine.SetEnvelope(Track.Id, envelope);
         AudioEngine.SetManualVolume(Track.Id, 1.0f);
     }
@@ -215,7 +219,7 @@
         [
             new AutomationNode(current, _volume),
             new AutomationNode(current + TimeSpan.FromSeconds(ShowState.GlobalFadeOutSeconds), 0.0f),
-    ]);
+        ]);
         AudioEngine.SetEnvelope(Track.Id, envelope);
         AudioEngine.SetManualVolume(Track.Id, 1.0f);
     }
@@ -228,9 +232,6 @@
             out var v))
         {
             _volume = v;
-
-            // Cancelar cualquier fade activo: reemplazar la envolvente
-            // con una plana al volumen actual. El operador tiene control.
             AudioEngine.SetEnvelope(Track.Id, VolumeEnvelope.Empty);
             AudioEngine.SetManualVolume(Track.Id, _volume);
         }
@@ -266,10 +267,10 @@
     }
 
     private async Task OnRemoveClick()
-        => await OnRemove.InvokeAsync(Track.Id);
-
-    private void OnOpenEnvelopeEditor()
-        => Nav.NavigateTo($"/envelope/{Track.Id}");
+    {
+        _confirmRemove = false;
+        await OnRemove.InvokeAsync(Track.Id);
+    }
 
     private async Task OnNameEdit()
     {
@@ -315,4 +316,6 @@
         if (UnloadOnDispose)
             AudioEngine.UnloadTrack(Track.Id);
     }
+
+    private string ConfirmMessage => $"¿Eliminar '{_trackName}'? Esta acción no se puede deshacer.";
 }

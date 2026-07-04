@@ -1,0 +1,21 @@
+﻿@if (Visible)
+{
+    <div class="cue-modal-overlay" @onclick="OnCancel">
+        <div class="confirm-dialog" @onclick:stopPropagation="true">
+            <div class="confirm-dialog__icon">⚠</div>
+            <p class="confirm-dialog__message">@Message</p>
+            <div class="confirm-dialog__actions">
+                <button class="btn-cancel" @onclick="OnCancel">Cancelar</button>
+                <button class="btn-danger" @onclick="OnConfirm">@ConfirmLabel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string Message { get; set; } = "¿Estás seguro?";
+    [Parameter] public string ConfirmLabel { get; set; } = "Confirmar";
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+}

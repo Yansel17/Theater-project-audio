@@ -41,4 +41,15 @@ public interface IAudioEngine : IDisposable
 
     /// <summary>Se dispara cuando una pista llega naturalmente al final (no por Stop manual). Útil para resetear el botón Play en la UI.</summary>
     event EventHandler<Guid>? TrackCompleted;
+
+    /// <summary>Devuelve los dispositivos de salida de audio disponibles en el sistema.</summary>
+    IReadOnlyList<AudioDeviceInfo> GetOutputDevices();
+
+    /// <summary>Cambia el dispositivo de salida para todas las pistas activas.</summary>
+    void SetOutputDevice(string deviceId);
+
+    /// <summary>ID del dispositivo de salida actualmente seleccionado.</summary>
+    string? CurrentDeviceId { get; }
+
+    event Action? OutputDevicesChanged;
 }

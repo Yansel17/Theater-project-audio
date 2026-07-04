@@ -81,7 +81,6 @@
 
     <ItemGroup>
       <Folder Include="Resources\Musica\" />
-      <Folder Include="wwwroot\img\" />
     </ItemGroup>
 
 </Project>

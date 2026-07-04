@@ -1,0 +1,99 @@
+﻿@inject IJSRuntime JS
+
+@if (isVisible)
+{
+    <div class="cue-modal-overlay">
+        <div class="welcome-modal">
+            <button class="btn-skip" @onclick="Finish" title="Saltar guía">Omitir ✕</button>
+
+            <h3>@currentStep.Title</h3>
+
+            <div class="step-media">
+                @if (currentStep.ImagePaths != null && currentStep.ImagePaths.Any())
+                {
+                    <div class="step-images-container">
+                        @foreach (var imgPath in currentStep.ImagePaths)
+                        {
+                            <img src="@imgPath" alt="@currentStep.Title" class="step-image" />
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="step-icon">@currentStep.Emoji</div>
+                }
+            </div>
+
+            <p class="step-description">@currentStep.Description</p>
+
+            <div class="modal-actions">
+                <button class="btn-nav" @onclick="PrevStep" disabled="@(stepIndex == 0)">Anterior</button>
+                <span class="step-counter">@(stepIndex + 1) / @steps.Count</span>
+
+                @if (stepIndex < steps.Count - 1)
+                {
+                    <button class="btn-nav" @onclick="NextStep">Siguiente</button>
+                }
+                else
+                {
+                    <button class="btn-primary btn-nav" @onclick="Finish">¡Empezar!</button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isVisible = false;
+    private int stepIndex = 0;
+
+    // Ahora ImagePaths es un arreglo opcional de strings
+    private record GuideStep(string Title, string Description, string Emoji, string[]? ImagePaths = null);
+
+    private List<GuideStep> steps = new()
+    {
+        // Los pasos sin imágenes simplemente no envían el último parámetro (usa el default null)
+        new("¡Bienvenido a TheaterCue!", "Tu sistema de control de audio diseñado para precisión y baja latencia en teatro.", "🎭"),
+        new("El Espacio de Trabajo", "La pantalla se divide en dos: Columna izquierda para Música Principal, derecha para Efectos de Sonido (SFX).", "↔️"),
+        new("Drag & Drop", "Mantén presionado el botón ⋮⋮ en la esquina de cualquier tarjeta para moverla, reordenarla o cambiarla de columna.", "🖱️"),
+
+// AQUÍ INYECTAMOS TUS TRES IMÁGENES
+        new("Estados de Reproducción", "Las tarjetas te avisan visualmente su estado cambiando los colores de sus bordes y elementos: Gris (Detenido), Verde (Reproduciendo) y Amarillo (Pausado).", "🚥",
+            new[] { "img/sin_play.png", "img/con_play.png", "img/pause.png" }),
+
+new("Automatización y Curvas", "El botón 📈 abre el editor SVG. Allí puedes crear nodos de volumen a lo largo del tiempo para automatizar fades complejos.", "📈"),
+        new("Salida de Audio", "En la barra superior puedes seleccionar la interfaz por donde quieres que suene el show (Altavoces, Audífonos, etc).", "🔊"),
+        new("Persistencia", "¡No olvides tus cambios! Usa el botón Guardar para crear un archivo .cueshow con toda tu configuración.", "💾")
+    };
+
+    private GuideStep currentStep => steps[stepIndex];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var hasSeen = await JS.InvokeAsync<string>("localStorage.getItem", "hasSeenGuide");
+        if (string.IsNullOrEmpty(hasSeen) || hasSeen != "true")
+        {
+            isVisible = true;
+        }
+    }
+
+    public void Show()
+    {
+        stepIndex = 0;
+        isVisible = true;
+        StateHasChanged();
+    }
+
+    private void NextStep() => stepIndex++;
+
+    private void PrevStep()
+    {
+        if (stepIndex > 0) stepIndex--;
+    }
+
+    private async Task Finish()
+    {
+        isVisible = false;
+        await JS.InvokeVoidAsync("localStorage.setItem", "hasSeenGuide", "true");
+    }
+}

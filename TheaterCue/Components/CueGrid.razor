@@ -11,7 +11,11 @@
                 <div @key="track.Id"
                      class="cue-card-wrapper"
                      data-track-id="@track.Id">
-                    <CuePlayerCard Track="track" OnRemove="OnRemove" UnloadOnDispose="false" />
+                    <CuePlayerCard @key="track.Id"
+                                   Track="track"
+                                   OnRemove="OnRemove"
+                                   OnOpenEnvelope="OnOpenEnvelope"
+                                   UnloadOnDispose="false" />
                 </div>
             }
         </div>
@@ -97,6 +101,8 @@
                 track.Position = new GridPosition(row++, col);
         }
     }
+
+    [Parameter] public EventCallback<Guid> OnOpenEnvelope { get; set; }
 
     public async ValueTask DisposeAsync()
     {

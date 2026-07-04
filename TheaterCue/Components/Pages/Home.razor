@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using TheaterCue.Components.Modals
 @using TheaterCue.Domain
 @using TheaterCue.Application
 @inject IProjectRepository ProjectRepository
@@ -7,46 +8,127 @@
 @inject CommunityToolkit.Maui.Storage.IFileSaver FileSaver
 
 <div class="home-toolbar">
-    <button title="Nuevo proyecto" @onclick="OnNewProject">🔄 Nuevo</button>
-    <button title="Agregar pista de música" @onclick="() => OnAddTrack(0)">＋ Música</button>
-    <button title="Agregar efecto de sonido" @onclick="() => OnAddTrack(1)">＋ SFX</button>
-    <button title="Guardar proyecto" @onclick="OnSaveProject">💾 Guardar</button>
-    <button title="Abrir proyecto" @onclick="OnOpenProject">📂 Abrir</button>
-    <button title="Ajustes Globales" @onclick="() => _showGlobalSettings = true">⚙ Ajustes del Show</button>
-    @if (ShowState.ProjectName is not null)
-    {
-        <span class="toolbar-project-name">@ShowState.ProjectName</span>
-    }
-    @if (_showGlobalSettings)
-    {
-        <div class="cue-modal-overlay" @onclick="() => _showGlobalSettings = false">
-            <div class="cue-modal-content" @onclick:stopPropagation="true">
-                <h3>⚙ Ajustes Globales del Show</h3>
+    <div class="toolbar-left">
+        <button title="Nuevo proyecto" @onclick="() => _confirmNewProject = true">🔄 Nuevo</button>
+        <button title="Agregar pista de música" @onclick="() => OnAddTrack(0)">＋ Música</button>
+        <button title="Agregar efecto de sonido" @onclick="() => OnAddTrack(1)">＋ SFX</button>
+        <button title="Guardar proyecto" @onclick="OnSaveProject">💾 Guardar</button>
+        <button title="Abrir proyecto" @onclick="OnOpenProject">📂 Abrir</button>
+        <a href="/manual" class="btn" title="Manual de usuario">?</a>
+        <button @onclick="() => welcomeGuide.Show()">Guía</button>
+        <WelcomeGuide @ref="welcomeGuide" />
+        <button title="Ajustes Globales"
+                class="@(_showGlobalSettings ? "btn-active" : "")"
+                @onclick="() => _showGlobalSettings = !_showGlobalSettings">
+            ⚙ Ajustes
+        </button>
+    </div>
+    <ConfirmDialog Visible="_confirmNewProject"
+                   Message="¿Crear nuevo proyecto? Se perderán los cambios no guardados."
+                   ConfirmLabel="Nuevo proyecto"
+                   OnConfirm="ConfirmNewProject"
+                   OnCancel="() => _confirmNewProject = false" />
 
-                <div class="settings-grid">
-                    <div class="setting-item">
-                        <label>Fade In Global (segundos)</label>
-                        <input type="number" min="0.5" max="60" step="0.5" @bind="ShowState.GlobalFadeInSeconds" />
-                    </div>
+    <div class="toolbar-center">
+        @if (ShowState.ProjectName is not null)
+        {
+            <span class="toolbar-project-name">@ShowState.ProjectName</span>
+        }
+    </div>
 
-                    <div class="setting-item">
-                        <label>Fade Out Global (segundos)</label>
-                        <input type="number" min="0.5" max="60" step="0.5" @bind="ShowState.GlobalFadeOutSeconds" />
-                    </div>
-                </div>
-
-                <div class="modal-actions">
-                    <button @onclick="() => _showGlobalSettings = false">Listo</button>
-                </div>
-            </div>
-        </div>
-    }
+    <div class="toolbar-right">
+        <span class="device-label">🔊</span>
+        <select title="Dispositivo de salida de audio"
+                value="@_selectedDeviceId"
+                @onchange="OnDeviceChanged"
+                class="device-selector">
+            @foreach (var device in _devices)
+            {
+                <option value="@device.Id">@device.Name</option>
+            }
+        </select>
+    </div>
 </div>
 
-<CueGrid Tracks="ShowState.Tracks" OnRemove="OnRemoveTrack" />
+@if (_showGlobalSettings)
+{
+    <div class="cue-modal-overlay" @onclick="() => _showGlobalSettings = false">
+        <div class="cue-modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>⚙ Ajustes Globales del Show</h3>
+                <button class="modal-close" @onclick="() => _showGlobalSettings = false">✕</button>
+            </div>
+
+            <div class="settings-grid">
+                <div class="setting-item">
+                    <label>Fade In Global (segundos)</label>
+                    <input type="number" min="0.5" max="60" step="0.5"
+                           @bind="ShowState.GlobalFadeInSeconds" />
+                </div>
+                <div class="setting-item">
+                    <label>Fade Out Global (segundos)</label>
+                    <input type="number" min="0.5" max="60" step="0.5"
+                           @bind="ShowState.GlobalFadeOutSeconds" />
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button @onclick="() => _showGlobalSettings = false">✓ Listo</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_envelopeTrackId.HasValue)
+{
+    <EnvelopeModal TrackId="_envelopeTrackId.Value"
+                   OnClose="() => _envelopeTrackId = null" />
+}
+
+<CueGrid Tracks="ShowState.Tracks"
+         OnRemove="OnRemoveTrack"
+         OnOpenEnvelope="(id) => _envelopeTrackId = id" />
 
 @code {
     private bool _showGlobalSettings = false;
+    private List<AudioDeviceInfo> _devices = [];
+    private bool _confirmNewProject = false;
+    private WelcomeGuide welcomeGuide;
+
+    private string? _selectedDeviceId = null;
+
+    protected override void OnInitialized()
+    {
+        _devices = AudioEngine.GetOutputDevices().ToList();
+        _selectedDeviceId = AudioEngine.CurrentDeviceId ?? _devices.FirstOrDefault()?.Id;
+        AudioEngine.OutputDevicesChanged += OnOutputDevicesChanged;
+    }
+
+    private void OnOutputDevicesChanged()
+    {
+        InvokeAsync(() =>
+        {
+            _devices = AudioEngine.GetOutputDevices().ToList();
+
+            // Si el dispositivo actual ya no existe, resetear al default
+            if (!_devices.Any(d => d.Id == _selectedDeviceId))
+            {
+                _selectedDeviceId = _devices.FirstOrDefault()?.Id;
+                if (_selectedDeviceId is not null)
+                    AudioEngine.SetOutputDevice(_selectedDeviceId);
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private void OnDeviceChanged(ChangeEventArgs e)
+    {
+        var deviceId = e.Value?.ToString();
+        if (string.IsNullOrEmpty(deviceId)) return;
+        _selectedDeviceId = deviceId;
+        AudioEngine.SetOutputDevice(deviceId);
+    }
 
     private void OnNewProject()
     {
@@ -138,4 +220,15 @@
         }
     }
 
+    private Guid? _envelopeTrackId = null;
+
+    public void Dispose()
+    {
+        AudioEngine.OutputDevicesChanged -= OnOutputDevicesChanged;
+    }
+    private void ConfirmNewProject()
+    {
+        _confirmNewProject = false;
+        OnNewProject();
+    }
 }

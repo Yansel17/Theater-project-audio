@@ -1,0 +1,198 @@
+﻿@page "/manual"
+@inject NavigationManager Nav
+
+<div class="manual-container">
+    <div class="manual-header">
+        <button class="btn-back" @onclick="GoBack" title="Volver al show">
+            ← Volver
+        </button>
+        <h1>Manual del Operador — TheaterCue</h1>
+    </div>
+
+    <div class="manual-content">
+        <section class="manual-section">
+            <h2>1. Introducción</h2>
+            <p><strong>TheaterCue</strong> es un sistema de gestión de audio diseñado para producciones teatrales y eventos en vivo. Prioriza la baja latencia, la seguridad en la ejecución (previniendo errores accidentales) y la flexibilidad visual.</p>
+        </section>
+
+        <section class="manual-section">
+            <h2>2. Barra de Herramientas (Toolbar)</h2>
+            <div class="manual-grid">
+                <div class="manual-card">
+                    <h3>Gestión del Show</h3>
+                    <ul>
+                        <li><strong>🔄 Nuevo:</strong> Limpia el espacio de trabajo para iniciar un show desde cero.</li>
+                        <li><strong>💾 Guardar / 📂 Abrir:</strong> Guarda tu progreso en un archivo <code>.cueshow</code>.</li>
+                        <li><strong>⚙ Ajustes:</strong> Abre el modal para configurar los tiempos de Fade In y Fade Out globales.</li>
+                    </ul>
+                </div>
+                <div class="manual-card">
+                    <h3>Agregar Pistas y Audio</h3>
+                    <ul>
+                        <li><strong>＋ Música:</strong> Añade una nueva tarjeta en la columna izquierda.</li>
+                        <li><strong>＋ SFX:</strong> Añade una nueva tarjeta de Efectos en la columna derecha.</li>
+                        <li><strong>🔊 Salida:</strong> Menú desplegable a la derecha para elegir tu interfaz de audio (ej. altavoces, audífonos o consola externa).</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section class="manual-section">
+            <h2>3. Espacio de Trabajo (Workspace)</h2>
+            <p>
+                El área principal está dividida en dos columnas: <strong>Música Principal</strong> y <strong>Efectos de Sonido (SFX)</strong>.
+                Puedes ajustar el ancho de estas columnas arrastrando la <strong>barra divisoria (splitter)</strong> que se encuentra en el centro de la pantalla.
+            </p>
+        </section>
+
+        <section class="manual-section">
+            <h2>4. Tarjetas de Pista (Cues)</h2>
+            <p>Cada tarjeta representa un "Cue" individual. Conoce sus controles:</p>
+
+            <div class="manual-grid">
+                <div class="manual-card">
+                    <h3>Navegación y Seguridad</h3>
+                    <ul>
+                        <li><strong>Arrastre (⋮⋮):</strong> Haz clic y mantén presionado sobre los puntos a la izquierda del nombre para reordenar la pista o cambiarla de columna.</li>
+                        <li><strong>Bloqueo de Slider (🔒/🔓):</strong> Por seguridad, la barra de progreso está bloqueada por defecto. Haz clic en el candado para desbloquearla y poder adelantar o atrasar la pista manualmente.</li>
+                    </ul>
+                </div>
+
+                <div class="manual-card">
+                    <h3>Controles de Reproducción</h3>
+                    <div class="controls-list">
+                        <p><strong>📂 Cargar:</strong> Abre el explorador para seleccionar tu archivo de audio.</p>
+                        <p><strong>▶ / ⏸ Play/Pausa:</strong> Inicia o pausa el audio.</p>
+                        <p><strong>⏹ Stop:</strong> Detiene el audio y lo devuelve al inicio (00:00).</p>
+                        <p><strong>↑ Fade In / ↓ Fade Out:</strong> Transiciones suaves automáticas basadas en los tiempos globales.</p>
+                    </div>
+                </div>
+
+                <div class="manual-card">
+                    <h3>Edición Avanzada</h3>
+                    <div class="controls-list">
+                        <p><strong>✏ Editar Nombre:</strong> Permite renombrar el cue (útil para indicar la escena, ej. "Escena 1 - Baile").</p>
+                        <p><strong>📈 Automatización:</strong> Abre el editor de curvas SVG para crear variaciones de volumen exactas a lo largo de la pista.</p>
+                        <p><strong>🗑 Eliminar:</strong> Borra la pista. Siempre pedirá confirmación para evitar desastres en vivo.</p>
+                    </div>
+                </div>
+
+                <div class="manual-card">
+                    <h3>Vúmetro y Volumen</h3>
+                    <p>En el centro de la tarjeta verás el <strong>Vúmetro</strong>, que muestra el nivel de la señal en tiempo real (verde/amarillo/rojo). En la parte inferior tienes un <strong>Slider de Volumen</strong> manual (0% a 100%) para ajustar la ganancia base del Cue.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+@code {
+    private void GoBack()
+    {
+        Nav.NavigateTo("/");
+    }
+}
+
+<style>
+    .manual-container {
+        padding: 2rem 3rem;
+        color: var(--text-primary);
+        height: 100vh;
+        overflow-y: auto;
+        background: var(--bg-app);
+    }
+
+    .manual-header {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 2.5rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1.5rem;
+    }
+
+        .manual-header h1 {
+            color: var(--accent);
+            margin: 0;
+            font-size: 1.8rem;
+            letter-spacing: 0.05em;
+        }
+
+    .btn-back {
+        font-size: 13px;
+        padding: 6px 14px;
+        background: #1a0000;
+        border: 1px solid #3a0000;
+        color: #ff6b6b;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+        .btn-back:hover {
+            background: #2a0000;
+            border-color: var(--danger);
+            color: #fff;
+            transform: translateX(-2px);
+        }
+
+    .manual-section {
+        margin-bottom: 3rem;
+    }
+
+    h2 {
+        color: var(--accent-dim);
+        margin-bottom: 1.2rem;
+        font-size: 1.4rem;
+        border-left: 3px solid var(--accent-dim);
+        padding-left: 10px;
+    }
+
+    h3 {
+        color: var(--text-primary);
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px dashed var(--border);
+        padding-bottom: 5px;
+    }
+
+    p {
+        line-height: 1.6;
+        color: #cccccc;
+        margin-bottom: 1rem;
+    }
+
+    .manual-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .manual-card {
+        background: var(--bg-card);
+        padding: 1.5rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+        .manual-card ul {
+            padding-left: 1.2rem;
+            color: #cccccc;
+            line-height: 1.8;
+        }
+
+    .controls-list p {
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    code {
+        background: #111;
+        padding: 3px 6px;
+        border-radius: 3px;
+        border: 1px solid #333;
+        color: var(--warning);
+        font-family: 'Consolas', monospace;
+    }
+</style>

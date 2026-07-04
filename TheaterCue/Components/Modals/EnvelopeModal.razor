@@ -1,0 +1,341 @@
+@using TheaterCue.Application
+@using TheaterCue.Domain
+@implements IAsyncDisposable
+@inject IAudioEngine AudioEngine
+@inject ShowStateService ShowState
+@inject IJSRuntime JS
+
+<div class="cue-modal-overlay" @onclick="OnClose">
+    <div class="envelope-modal-content" @onclick:stopPropagation="true">
+
+        <!-- ── Toolbar ── -->
+        <div class="envelope-editor__toolbar">
+            <span class="envelope-editor__title">@_trackName — Editor de Automatización</span>
+
+            <!-- Tiempo actual / total de la pista -->
+            <div class="envelope-modal-time">
+                <span class="envelope-modal-time__current">
+                    @_snapshot.CurrentTime.ToString(@"mm\:ss\.f")
+                </span>
+                <span class="envelope-modal-time__sep">/</span>
+                <span class="envelope-modal-time__total">
+                    @_snapshot.Duration.ToString(@"mm\:ss")
+                </span>
+                <span class="envelope-modal-time__state envelope-modal-time__state--@_snapshot.State.ToString().ToLower()">
+                    @(_snapshot.State switch {
+                        PlaybackState.Playing  => "▶",
+                        PlaybackState.Paused   => "⏸",
+                        _                      => "⏹"
+                    })
+                </span>
+            </div>
+
+            <button @onclick="OnClearEnvelope">🗑 Limpiar</button>
+            <button class="modal-close" @onclick="OnClose">✕ Cerrar</button>
+        </div>
+
+        <!-- ── Canvas SVG ── -->
+        <div class="envelope-editor__canvas-container">
+            <svg class="envelope-svg"
+                 xmlns="http://www.w3.org/2000/svg"
+                 xmlns:svg="http://www.w3.org/2000/svg"
+                 viewBox="0 0 @SvgWidth @SvgHeight"
+                 @ref="_svgRef"
+                 @onmousedown="OnSvgMouseDown"
+                 @onmousemove="OnSvgMouseMove"
+                 @onmouseup="OnSvgMouseUp"
+                 @onmouseleave="OnSvgMouseLeave">
+
+                <!-- Grilla horizontal (volumen) -->
+                @for (int i = 0; i <= 4; i++)
+                {
+                    var y     = i * (SvgHeight / 4.0);
+                    var label = (1.0 - i / 4.0).ToString("P0");
+                    <line x1="0" y1="@y" x2="@SvgWidth" y2="@y" stroke="#2a2a2a" stroke-width="1" />
+                    <svg:text x="4" y="@(y - 4)" fill="#555" font-size="10">@label</svg:text>
+                }
+
+                <!-- Grilla vertical (tiempo) -->
+                @for (int i = 1; i <= 10; i++)
+                {
+                    var x = i * (SvgWidth / 10.0);
+                    <line x1="@x" y1="0" x2="@x" y2="@SvgHeight" stroke="#1e1e1e" stroke-width="1" />
+                }
+
+                <!-- Área bajo la curva + polyline -->
+                @if (_curvePoints.Count > 1)
+                {
+                    <polygon points="@_areaPointsStr" fill="#00c85318" />
+                    <polyline points="@_curvePointsStr" fill="none" stroke="#00c853" stroke-width="2" />
+                }
+
+                <!-- Nodos con etiqueta de tiempo siempre visible -->
+                @foreach (var node in _envelope.Nodes)
+                {
+                    var cx        = TimeToX(node.Time);
+                    var cy        = VolumeToY(node.Volume);
+                    var isDragged = _draggedNode == node;
+                    var isHovered = _hoveredNode == node;
+
+                    var nodeColor  = isDragged ? "#ffd600" : (isHovered ? "#00e676" : "#00c853");
+                    var labelY     = cy + 20 > SvgHeight - 14 ? cy - 12 : cy + 20;
+                    var labelX     = Math.Clamp(cx, 28.0, SvgWidth - 28.0);
+                    var fontSize   = isDragged ? "11" : "9";
+                    var fontWeight = isDragged ? "bold" : "normal";
+                    var labelColor = isDragged ? "#ffd600" : "#aaaaaa";
+                    var timeLabel  = node.Time.ToString(@"mm\:ss\.f");
+                    var volLabel   = node.Volume.ToString("P0");
+
+                    <g>
+                        <circle cx="@cx" cy="@cy" r="@(isDragged ? 9 : 7)"
+                                fill="@nodeColor"
+                                stroke="white" stroke-width="2"
+                                style="cursor: grab"
+                                @onmousedown:stopPropagation="true"
+                                @onmousedown="(e) => OnNodeMouseDown(e, node)"
+                                @onmouseover="(e) => OnNodeHover(e, node)"
+                                @onmouseout="() => _hoveredNode = null"
+                                @ondblclick="() => OnNodeDoubleClick(node)" />
+
+                        @if (isDragged)
+                        {
+                            var bgW = 90.0;
+                            var bgH = 16.0;
+                            var bgX = labelX - bgW / 2;
+                            var bgY = labelY - bgH + 3;
+                            <rect x="@bgX" y="@bgY" width="@bgW" height="@bgH"
+                                  rx="3" ry="3"
+                                  fill="#1a1500" stroke="#ffd600" stroke-width="1"
+                                  pointer-events="none" />
+                        }
+
+                        <svg:text x="@labelX" y="@labelY"
+                                  text-anchor="middle"
+                                  fill="@labelColor"
+                                  font-size="@fontSize"
+                                  font-weight="@fontWeight"
+                                  font-family="Consolas, monospace"
+                                  pointer-events="none">
+                            @timeLabel · @volLabel
+                        </svg:text>
+                    </g>
+                }
+
+                <!-- Cabezal de reproducción -->
+                @if (_snapshot.Duration.TotalSeconds > 0)
+                {
+                    var headX = TimeToX(_snapshot.CurrentTime);
+                    <line x1="@headX" y1="0" x2="@headX" y2="@SvgHeight" stroke="#ff4444" stroke-width="2" />
+                    <polygon points="@headX,0 @(headX - 6),0 @(headX + 6),0 @headX,12" fill="#ff4444" />
+                }
+            </svg>
+        </div>
+
+        @if (_hoveredNode is not null)
+        {
+            <div class="node-tooltip"
+                 style="left:@((_tooltipX + 12).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))px;
+                        top:@((_tooltipY - 8).ToString("F0", System.Globalization.CultureInfo.InvariantCulture))px">
+                ⏱ @_hoveredNode.Time.ToString(@"mm\:ss\.ff") · 🔊 @(_hoveredNode.Volume.ToString("P0"))
+            </div>
+        }
+
+        <div class="envelope-editor__hint">
+            Click para agregar nodo &middot; Doble click para eliminar &middot; Arrastra para mover
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Guid TrackId  { get; set; }
+    [Parameter]                 public EventCallback OnClose { get; set; }
+
+    // ── Constantes del viewBox ───────────────────────────────────────────────
+    private const double SvgWidth  = 800;
+    private const double SvgHeight = 300;
+
+    // ── Estado ───────────────────────────────────────────────────────────────
+    private VolumeEnvelope   _envelope  = VolumeEnvelope.Empty;
+    private PlaybackSnapshot _snapshot  = PlaybackSnapshot.NotLoaded;
+    private string           _trackName = string.Empty;
+
+    private List<(double x, double y)> _curvePoints = [];
+    private string _curvePointsStr = string.Empty;
+    private string _areaPointsStr  = string.Empty;
+
+    private AutomationNode? _draggedNode = null;
+    private AutomationNode? _hoveredNode = null;
+    private double _tooltipX = 0;
+    private double _tooltipY = 0;
+
+    // ── Referencia al SVG y factores de escala ───────────────────────────────
+    // FIX: e.OffsetX/Y vienen en píxeles CSS del elemento renderizado.
+    // El viewBox es siempre 800×300. Si el SVG se renderiza a 400px de ancho,
+    // scaleX = 800/400 = 2.  Multiplicando e.OffsetX * scaleX obtenemos la
+    // coordenada correcta dentro del viewBox, independiente del tamaño de ventana.
+    private ElementReference _svgRef;
+    private double _scaleX = 1.0;
+    private double _scaleY = 1.0;
+
+    // ── Timer ────────────────────────────────────────────────────────────────
+    private PeriodicTimer?          _timer;
+    private CancellationTokenSource _cts = new();
+
+    // ── Ciclo de vida ────────────────────────────────────────────────────────
+    protected override void OnInitialized()
+    {
+        var track  = ShowState.Tracks.FirstOrDefault(t => t.Id == TrackId);
+        _trackName = track?.Name ?? "Pista desconocida";
+        _envelope  = track?.Envelope ?? VolumeEnvelope.Empty;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        // Calcular los factores de escala una vez al abrir el modal.
+        await RefreshScaleFactors();
+
+        _timer = new PeriodicTimer(TimeSpan.FromMilliseconds(33));
+        try
+        {
+            while (await _timer.WaitForNextTickAsync(_cts.Token))
+            {
+                _snapshot = AudioEngine.GetSnapshot(TrackId);
+                RebuildCurve();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (ObjectDisposedException)    { }
+    }
+
+    /// <summary>
+    /// Consulta al DOM las dimensiones reales del SVG renderizado y calcula
+    /// los factores de escala viewBox→píxel. Se llama en el primer render y
+    /// antes de cada interacción de mouse para cubrir cambios de tamaño de ventana.
+    /// </summary>
+    private async Task RefreshScaleFactors()
+    {
+        try
+        {
+            var size = await JS.InvokeAsync<SvgSize>("envelopeHelpers.getSvgSize", _svgRef);
+            if (size.Width  > 0) _scaleX = SvgWidth  / size.Width;
+            if (size.Height > 0) _scaleY = SvgHeight / size.Height;
+        }
+        catch { /* Si JS falla (ej. durante dispose), ignorar y mantener escala anterior */ }
+    }
+
+    // ── Conversión de coordenadas (con corrección de escala) ─────────────────
+    private double TimeToX(TimeSpan time)
+    {
+        if (_snapshot.Duration.TotalSeconds <= 0) return 0;
+        return time.TotalSeconds / _snapshot.Duration.TotalSeconds * SvgWidth;
+    }
+
+    private double VolumeToY(float volume) => SvgHeight - volume * SvgHeight;
+
+    // Los métodos que convierten mouse→viewBox aplican los factores de escala.
+    private TimeSpan XToTime(double offsetX)
+    {
+        if (_snapshot.Duration.TotalSeconds <= 0) return TimeSpan.Zero;
+        var svgX = offsetX * _scaleX;   // ← corrección clave
+        return TimeSpan.FromSeconds(Math.Clamp(svgX / SvgWidth * _snapshot.Duration.TotalSeconds,
+                                               0, _snapshot.Duration.TotalSeconds));
+    }
+
+    private float YToVolume(double offsetY)
+    {
+        var svgY = offsetY * _scaleY;   // ← corrección clave
+        return (float)Math.Clamp(1.0 - svgY / SvgHeight, 0.0, 1.0);
+    }
+
+    // ── Construcción de la curva interpolada ─────────────────────────────────
+    private void RebuildCurve()
+    {
+        _curvePoints.Clear();
+        if (_snapshot.Duration.TotalSeconds <= 0)
+        {
+            _curvePointsStr = "";
+            _areaPointsStr  = "";
+            return;
+        }
+
+        for (int i = 0; i <= 200; i++)
+        {
+            var t = TimeSpan.FromSeconds(i / 200.0 * _snapshot.Duration.TotalSeconds);
+            _curvePoints.Add((TimeToX(t), VolumeToY(_envelope.GetVolumeAt(t))));
+        }
+
+        _curvePointsStr = string.Join(" ", _curvePoints.Select(p => $"{p.x:F1},{p.y:F1}"));
+        var area = _curvePoints.ToList();
+        area.Add((SvgWidth, SvgHeight));
+        area.Add((0, SvgHeight));
+        _areaPointsStr = string.Join(" ", area.Select(p => $"{p.x:F1},{p.y:F1}"));
+    }
+
+    // ── Aplicar cambios a engine + ShowState ─────────────────────────────────
+    private void ApplyEnvelope(VolumeEnvelope envelope)
+    {
+        _envelope = envelope;
+        AudioEngine.SetEnvelope(TrackId, _envelope);
+        var track = ShowState.Tracks.FirstOrDefault(t => t.Id == TrackId);
+        if (track is not null) track.Envelope = _envelope;
+        RebuildCurve();
+    }
+
+    // ── Eventos del SVG ──────────────────────────────────────────────────────
+    private async Task OnSvgMouseDown(MouseEventArgs e)
+    {
+        // Refrescar escala antes de cada nueva interacción (cubre resize de ventana).
+        await RefreshScaleFactors();
+        ApplyEnvelope(_envelope.WithNode(new AutomationNode(XToTime(e.OffsetX), YToVolume(e.OffsetY))));
+    }
+
+    private void OnSvgMouseMove(MouseEventArgs e)
+    {
+        if (_hoveredNode is not null) { _tooltipX = e.ClientX; _tooltipY = e.ClientY; }
+        if (_draggedNode is null) return;
+
+        var time    = XToTime(e.OffsetX);
+        var volume  = YToVolume(e.OffsetY);
+        var updated = _envelope.WithoutNodeAt(_draggedNode.Time)
+                               .WithNode(new AutomationNode(time, volume));
+        _draggedNode = new AutomationNode(time, volume);
+        ApplyEnvelope(updated);
+    }
+
+    private void OnSvgMouseUp(MouseEventArgs e)    => _draggedNode = null;
+    private void OnSvgMouseLeave(MouseEventArgs e)  { _draggedNode = null; _hoveredNode = null; }
+
+    private async Task OnNodeMouseDown(MouseEventArgs e, AutomationNode node)
+    {
+        await RefreshScaleFactors();
+        _draggedNode = node;
+    }
+
+    private void OnNodeHover(MouseEventArgs e, AutomationNode node)
+    {
+        _hoveredNode = node;
+        _tooltipX    = e.ClientX;
+        _tooltipY    = e.ClientY;
+    }
+
+    private void OnNodeDoubleClick(AutomationNode node)
+        => ApplyEnvelope(_envelope.WithoutNodeAt(node.Time));
+
+    private void OnClearEnvelope()
+        => ApplyEnvelope(VolumeEnvelope.Empty);
+
+    // ── Dispose ──────────────────────────────────────────────────────────────
+    public async ValueTask DisposeAsync()
+    {
+        if (!_cts.IsCancellationRequested)
+            await _cts.CancelAsync();
+        _cts.Dispose();
+        _timer?.Dispose();
+    }
+
+    // ── DTO para recibir el tamaño del SVG desde JS ──────────────────────────
+    private record SvgSize(double Width, double Height);
+}

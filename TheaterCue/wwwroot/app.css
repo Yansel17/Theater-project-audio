@@ -517,6 +517,7 @@ button {
         cursor: grabbing;
         color: var(--accent);
     }
+
 .cue-column {
     flex: 1;
     display: flex;
@@ -623,4 +624,430 @@ button {
 .cue-card-wrapper.dragging {
     opacity: 0.3;
     outline: 1px dashed var(--accent);
+}
+
+.device-selector {
+    background: #2a2a2a;
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 3px 6px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    max-width: 200px;
+}
+
+    .device-selector:hover {
+        border-color: var(--accent-dim);
+    }
+
+/* ── Estados de la tarjeta ─────────────────────────────────────────── */
+.cue-card--playing {
+    border-color: var(--accent);
+    box-shadow: 0 0 8px rgba(0, 230, 118, 0.2);
+}
+
+    .cue-card--playing .cue-card__name {
+        color: var(--accent);
+    }
+
+.cue-card--paused {
+    border-color: var(--warning);
+    box-shadow: 0 0 6px rgba(255, 214, 0, 0.15);
+}
+
+    .cue-card--paused .cue-card__name {
+        color: var(--warning);
+    }
+
+.cue-card--stopped {
+    border-color: var(--border);
+    box-shadow: none;
+}
+
+    .cue-card--stopped .cue-card__name {
+        color: var(--accent);
+        opacity: 0.6;
+    }
+
+.cue-card--completed {
+    border-color: #333;
+    box-shadow: none;
+    opacity: 0.7;
+}
+
+    .cue-card--completed .cue-card__name {
+        color: var(--text-muted);
+    }
+
+/* ── Envelope Editor ───────────────────────────────────────────────── */
+.envelope-editor {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--bg-app);
+}
+
+.envelope-editor__toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: #111;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.envelope-editor__title {
+    flex: 1;
+    text-align: center;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.envelope-editor__canvas-container {
+    flex: 1;
+    padding: 16px;
+    display: flex;
+    align-items: stretch;
+}
+
+.envelope-svg {
+    width: 100%;
+    height: 100%;
+    background: #111;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: crosshair;
+}
+
+.envelope-editor__hint {
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 6px;
+    border-top: 1px solid var(--border);
+    letter-spacing: 0.04em;
+}
+
+/* Tooltip de nodo */
+.node-tooltip {
+    position: fixed;
+    background: #1e1e1e;
+    border: 1px solid var(--accent-dim);
+    border-radius: 3px;
+    padding: 3px 8px;
+    font-size: 10px;
+    color: var(--accent);
+    pointer-events: none;
+    z-index: 999;
+    font-family: 'Consolas', monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODAL OVERLAY — EnvelopeModal
+   Agrega este bloque al final de app.css
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Fondo oscuro con blur que cubre toda la pantalla y queda ENCIMA de todo */
+.cue-modal-overlay {
+    position: fixed;
+    inset: 0; /* top/right/bottom/left: 0 */
+    z-index: 1000; /* por encima del drag-ghost (9999 lo supera, pero 1000 es suficiente para el grid) */
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Entrada suave */
+    animation: modal-fade-in 0.15s ease;
+}
+
+@keyframes modal-fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+/* Contenedor flotante del editor */
+.envelope-modal-content {
+    position: relative;
+    width: 90vw;
+    max-width: 1000px;
+    max-height: 82vh;
+    background: #141414;
+    border: 1px solid var(--accent-dim);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(0, 230, 118, 0.08); /* borde interior sutil */
+    /* Entrada con ligero scale */
+    animation: modal-slide-in 0.15s ease;
+}
+
+@keyframes modal-slide-in {
+    from {
+        transform: scale(0.96);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ── Indicador de tiempo actual / total ─────────────────────────────────── */
+.envelope-modal-time {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #0d0d0d;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.envelope-modal-time__current {
+    color: var(--accent);
+    font-weight: bold;
+}
+
+.envelope-modal-time__sep {
+    color: var(--text-muted);
+    margin: 0 1px;
+}
+
+.envelope-modal-time__total {
+    color: var(--text-muted);
+}
+
+/* Punto de estado (▶ ⏸ ⏹) con color según estado */
+.envelope-modal-time__state {
+    margin-left: 6px;
+    font-size: 10px;
+}
+
+.envelope-modal-time__state--playing {
+    color: var(--accent);
+}
+
+.envelope-modal-time__state--paused {
+    color: var(--warning);
+}
+
+.envelope-modal-time__state--stopped,
+.envelope-modal-time__state--completed {
+    color: var(--text-muted);
+}
+
+/* ── Botón cerrar ────────────────────────────────────────────────────────── */
+.modal-close {
+    background: #1a0000;
+    border-color: #3a0000;
+    color: #ff6b6b;
+}
+
+    .modal-close:hover {
+        background: #2a0000;
+        border-color: var(--danger);
+        color: #fff;
+    }
+/* ── Confirm Dialog ────────────────────────────────────────────────── */
+.confirm-dialog {
+    background: #1e1e1e;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 24px;
+    min-width: 320px;
+    max-width: 420px;
+    text-align: center;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+}
+
+.confirm-dialog__icon {
+    font-size: 32px;
+    margin-bottom: 12px;
+    color: var(--warning);
+}
+
+.confirm-dialog__message {
+    font-size: 12px;
+    color: var(--text-primary);
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.confirm-dialog__actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.btn-cancel {
+    background: #2a2a2a;
+    border-color: var(--border);
+}
+
+.btn-danger {
+    background: #3a0000;
+    border-color: var(--danger);
+    color: #ff6666;
+}
+
+    .btn-danger:hover {
+        background: var(--danger);
+        color: white;
+    }
+
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+}
+
+.welcome-modal {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--accent-dim);
+    padding: 2.5rem 2rem 2rem 2rem;
+    border-radius: 8px;
+    width: 480px;
+    text-align: center;
+    color: var(--text-primary);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+}
+
+.btn-skip {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+    .btn-skip:hover {
+        color: var(--text-primary);
+    }
+
+.welcome-modal {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--accent-dim);
+    padding: 2.5rem 2rem 2rem 2rem;
+    border-radius: 8px;
+    width: 520px; /* Un poco más ancho para acomodar bien las 3 imágenes */
+    text-align: center;
+    color: var(--text-primary);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+}
+
+.btn-skip {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+    .btn-skip:hover {
+        color: var(--text-primary);
+    }
+
+.step-media {
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 1.5rem 0;
+}
+
+.step-icon {
+    font-size: 4.5rem;
+    animation: float 3s ease-in-out infinite;
+}
+
+/* Contenedor Flexbox para alinear las imágenes lado a lado */
+.step-images-container {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+/* Escala las imágenes dinámicamente para que quepan las 3 */
+.step-image {
+    flex: 1; /* Permite que compartan el espacio equitativamente */
+    max-width: 32%; /* Evita que crezcan demasiado */
+    object-fit: contain;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.step-description {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #cccccc;
+    min-height: 60px;
+}
+
+.modal-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--border);
+}
+
+.step-counter {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.btn-nav {
+    padding: 6px 16px;
+    font-size: 12px;
+}
+@keyframes float {
+    0% {
+        transform: translateY(0px);
+    }
+
+    50% {
+        transform: translateY(-8px);
+    }
+
+    100% {
+        transform: translateY(0px);
+    }
 }
