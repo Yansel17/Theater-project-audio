@@ -15,7 +15,7 @@
         <button title="Guardar proyecto" @onclick="OnSaveProject">💾 Guardar</button>
         <button title="Abrir proyecto" @onclick="OnOpenProject">📂 Abrir</button>
         <a href="/manual" class="btn" title="Manual de usuario">?</a>
-        <button @onclick="() => welcomeGuide.Show()">Guía</button>
+        <button @onclick="() => welcomeGuide?.Show()">Guía</button>
         <WelcomeGuide @ref="welcomeGuide" />
         <button title="Ajustes Globales"
                 class="@(_showGlobalSettings ? "btn-active" : "")"
@@ -93,7 +93,7 @@
     private bool _showGlobalSettings = false;
     private List<AudioDeviceInfo> _devices = [];
     private bool _confirmNewProject = false;
-    private WelcomeGuide welcomeGuide;
+    private WelcomeGuide? welcomeGuide;
 
     private string? _selectedDeviceId = null;
 
