@@ -43,11 +43,24 @@ jobs:
           -f net10.0-maccatalyst
           -c Release
           -p:CreatePackage=false
+          -p:CodesignKey="-"
 
-      - name: Subir el build como artefacto
+      - name: Firmar ad-hoc el .app (sin cuenta de Apple Developer)
+        run: |
+          APP_PATH=$(find TheaterCue/TheaterCue/bin/Release/net10.0-maccatalyst -maxdepth 1 -name "*.app")
+          echo "App encontrada en: $APP_PATH"
+          codesign --force --deep --sign - "$APP_PATH"
+
+      - name: Comprimir el .app en un zip
+        run: |
+          APP_PATH=$(find TheaterCue/TheaterCue/bin/Release/net10.0-maccatalyst -maxdepth 1 -name "*.app")
+          cd "$(dirname "$APP_PATH")"
+          zip -r -y TheaterCue-maccatalyst.zip "$(basename "$APP_PATH")"
+
+      - name: Subir el .app comprimido como artefacto
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TheaterCue-maccatalyst-build
-          path: TheaterCue/TheaterCue/bin/Release/net10.0-maccatalyst/**
+          name: TheaterCue-maccatalyst-app
+          path: TheaterCue/TheaterCue/bin/Release/net10.0-maccatalyst/TheaterCue-maccatalyst.zip
           if-no-files-found: warn
