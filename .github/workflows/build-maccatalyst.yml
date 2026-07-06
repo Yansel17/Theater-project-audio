@@ -23,10 +23,10 @@ jobs:
       - name: Listar versiones de Xcode disponibles en el runner
         run: ls /Applications | grep Xcode
 
-      - name: Seleccionar Xcode compatible
+      - name: Seleccionar Xcode 26.5 (versión exacta requerida por el SDK)
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: '26.5'
 
       - name: Ver versión de Xcode disponible
         run: xcodebuild -version
