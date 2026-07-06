@@ -46,11 +46,11 @@ jobs:
           -p:CodesignKey="-"
 
       - name: Ver estructura real de la carpeta de salida
-        run: find TheaterCue/TheaterCue/bin/Release -maxdepth 4
+        run: find TheaterCue/bin/Release -maxdepth 4
 
       - name: Firmar ad-hoc el .app (sin cuenta de Apple Developer)
         run: |
-          APP_PATH=$(find TheaterCue/TheaterCue/bin/Release -name "*.app" -maxdepth 5 | head -n 1)
+          APP_PATH=$(find TheaterCue/bin/Release -name "*.app" -maxdepth 5 | head -n 1)
           echo "App encontrada en: $APP_PATH"
           if [ -z "$APP_PATH" ]; then
             echo "No se encontró ningún .app - revisa el paso de diagnóstico anterior"
