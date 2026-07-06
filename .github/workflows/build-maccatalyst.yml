@@ -26,8 +26,8 @@ jobs:
       - name: Instalar workload maccatalyst
         run: dotnet workload install maccatalyst
 
-      - name: Restaurar dependencias
-        run: dotnet restore TheaterCue/TheaterCue.UI.csproj
+      - name: Restaurar dependencias (solo maccatalyst)
+        run: dotnet restore TheaterCue/TheaterCue.UI.csproj -f net10.0-maccatalyst
 
       - name: Compilar (net10.0-maccatalyst)
         run: >
