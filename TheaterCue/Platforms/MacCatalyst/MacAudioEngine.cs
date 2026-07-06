@@ -72,17 +72,24 @@ public sealed class MacAudioEngine : IAudioEngine
             try
             {
                 var url = NSUrl.FromFilename(filePath);
-                var player = new AVAudioPlayer(url, out var error);
-                if (error is not null)
-                    throw new InvalidOperationException(error.LocalizedDescription);
+
+                AVAudioPlayer player;
+                try
+                {
+                    player = new AVAudioPlayer(url);
+                }
+                catch (NSErrorException nsEx)
+                {
+                    throw new InvalidOperationException(
+                        nsEx.Error?.LocalizedDescription ?? nsEx.Message);
+                }
 
                 player.MeteringEnabled = true;
                 player.PrepareToPlay();
                 player.FinishedPlaying += (_, args) =>
                 {
-                    // args.Successfully == false normalmente indica error de decodificación,
-                    // no lo tratamos como "fin natural" para no confundir a la UI.
-                    if (args.Successfully)
+                    // args.Status indica si terminó naturalmente (true) o por error de decodificación (false).
+                    if (args.Status)
                         TrackCompleted?.Invoke(this, trackId);
                 };
 
