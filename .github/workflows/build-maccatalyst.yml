@@ -32,7 +32,7 @@ jobs:
       - name: Compilar (net10.0-maccatalyst)
         run: >
           dotnet build TheaterCue/TheaterCue.UI.csproj
-          -f net10.0-maccatalyst
+          -p:TargetFramework=net10.0-maccatalyst
           -c Release
           -p:CreatePackage=false
 
