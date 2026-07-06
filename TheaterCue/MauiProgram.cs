@@ -1,10 +1,9 @@
 ﻿using Microsoft.Extensions.Logging;
 using TheaterCue.Application;
+using TheaterCue.Infrastructure.Audio; // JsonProjectRepository vive aquí y no depende de NAudio; se usa en todas las plataformas
 using CommunityToolkit.Maui;
 using CommunityToolkit.Maui.Storage; // ← agregar
-#if WINDOWS
-using TheaterCue.Infrastructure.Audio;
-#elif MACCATALYST
+#if MACCATALYST
 using TheaterCue.Platforms.MacCatalyst;
 #endif
 
