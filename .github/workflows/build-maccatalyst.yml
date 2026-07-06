@@ -1,0 +1,45 @@
+name: Build Mac Catalyst
+
+# Se dispara manualmente (Actions > Run workflow) o en cada push a main.
+# Ajusta el trigger si prefieres que solo corra manualmente.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-maccatalyst:
+    runs-on: macos-15   # runner con Xcode reciente preinstalado
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Instalar .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Ver versión de Xcode disponible
+        run: xcodebuild -version
+
+      - name: Instalar workload maccatalyst
+        run: dotnet workload install maccatalyst
+
+      - name: Restaurar dependencias
+        run: dotnet restore TheaterCue/TheaterCue.UI.csproj
+
+      - name: Compilar (net10.0-maccatalyst)
+        run: >
+          dotnet build TheaterCue/TheaterCue.UI.csproj
+          -f net10.0-maccatalyst
+          -c Release
+          -p:CreatePackage=false
+
+      - name: Subir el build como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TheaterCue-maccatalyst-build
+          path: TheaterCue/TheaterCue/bin/Release/net10.0-maccatalyst/**
+          if-no-files-found: warn
