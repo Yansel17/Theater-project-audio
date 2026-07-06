@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-maccatalyst:
-    runs-on: macos-15   # runner con Xcode reciente preinstalado
+    runs-on: macos-26   # runner más nuevo disponible, con Xcode 26.x preinstalado
 
     steps:
       - name: Checkout del código
@@ -19,6 +19,14 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      - name: Listar versiones de Xcode disponibles en el runner
+        run: ls /Applications | grep Xcode
+
+      - name: Seleccionar Xcode compatible
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - name: Ver versión de Xcode disponible
         run: xcodebuild -version
