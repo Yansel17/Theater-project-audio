@@ -76,7 +76,9 @@ public sealed class MacAudioEngine : IAudioEngine
                 AVAudioPlayer player;
                 try
                 {
-                    player = new AVAudioPlayer(url);
+                    player = new AVAudioPlayer(url, (string?)null, out var avError);
+                    if (avError is not null)
+                        throw new InvalidOperationException(avError.LocalizedDescription);
                 }
                 catch (NSErrorException nsEx)
                 {
