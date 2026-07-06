@@ -23,16 +23,16 @@ jobs:
       - name: Ver versión de Xcode disponible
         run: xcodebuild -version
 
-      - name: Instalar workload maui-maccatalyst
-        run: dotnet workload install maui-maccatalyst
+      - name: Instalar workloads MAUI (android, ios, maccatalyst)
+        run: dotnet workload install maui-android maui-ios maui-maccatalyst
 
-      - name: Restaurar dependencias (solo maccatalyst)
-        run: dotnet restore TheaterCue/TheaterCue.UI.csproj -p:TargetFramework=net10.0-maccatalyst
+      - name: Restaurar dependencias
+        run: dotnet restore TheaterCue/TheaterCue.UI.csproj
 
       - name: Compilar (net10.0-maccatalyst)
         run: >
           dotnet build TheaterCue/TheaterCue.UI.csproj
-          -p:TargetFramework=net10.0-maccatalyst
+          -f net10.0-maccatalyst
           -c Release
           -p:CreatePackage=false
 
