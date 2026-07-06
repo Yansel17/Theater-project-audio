@@ -1,8 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 using TheaterCue.Application;
-using TheaterCue.Infrastructure.Audio;
 using CommunityToolkit.Maui;
 using CommunityToolkit.Maui.Storage; // ← agregar
+#if WINDOWS
+using TheaterCue.Infrastructure.Audio;
+#elif MACCATALYST
+using TheaterCue.Platforms.MacCatalyst;
+#endif
 
 namespace TheaterCue;
 
@@ -28,7 +32,15 @@ public static class MauiProgram
 #endif
 
         // Motor de audio: Singleton, una sola instancia vive con la app.
+        // NAudio (WASAPI) solo existe en Windows; en Mac Catalyst usamos AVFoundation.
+        // Android/iOS todavía no tienen motor real: usan un stub para no romper el build.
+#if WINDOWS
         builder.Services.AddSingleton<IAudioEngine, NAudioEngine>();
+#elif MACCATALYST
+        builder.Services.AddSingleton<IAudioEngine, MacAudioEngine>();
+#else
+        builder.Services.AddSingleton<IAudioEngine, NullAudioEngine>();
+#endif
         builder.Services.AddSingleton<IProjectRepository, JsonProjectRepository>();
         builder.Services.AddSingleton<ShowStateService>();
         builder.Services.AddSingleton<IFileSaver>(FileSaver.Default);
