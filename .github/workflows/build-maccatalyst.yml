@@ -45,22 +45,30 @@ jobs:
           -p:CreatePackage=false
           -p:CodesignKey="-"
 
+      - name: Ver estructura real de la carpeta de salida
+        run: find TheaterCue/TheaterCue/bin/Release -maxdepth 4
+
       - name: Firmar ad-hoc el .app (sin cuenta de Apple Developer)
         run: |
-          APP_PATH=$(find TheaterCue/TheaterCue/bin/Release/net10.0-maccatalyst -maxdepth 1 -name "*.app")
+          APP_PATH=$(find TheaterCue/TheaterCue/bin/Release -name "*.app" -maxdepth 5 | head -n 1)
           echo "App encontrada en: $APP_PATH"
+          if [ -z "$APP_PATH" ]; then
+            echo "No se encontró ningún .app - revisa el paso de diagnóstico anterior"
+            exit 1
+          fi
           codesign --force --deep --sign - "$APP_PATH"
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
 
       - name: Comprimir el .app en un zip
         run: |
-          APP_PATH=$(find TheaterCue/TheaterCue/bin/Release/net10.0-maccatalyst -maxdepth 1 -name "*.app")
           cd "$(dirname "$APP_PATH")"
           zip -r -y TheaterCue-maccatalyst.zip "$(basename "$APP_PATH")"
+          echo "ZIP_DIR=$(dirname "$APP_PATH")" >> "$GITHUB_ENV"
 
       - name: Subir el .app comprimido como artefacto
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: TheaterCue-maccatalyst-app
-          path: TheaterCue/TheaterCue/bin/Release/net10.0-maccatalyst/TheaterCue-maccatalyst.zip
+          path: ${{ env.ZIP_DIR }}/TheaterCue-maccatalyst.zip
           if-no-files-found: warn
