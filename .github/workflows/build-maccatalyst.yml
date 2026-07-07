@@ -18,12 +18,12 @@ jobs:
       - name: Verificar que wwwroot se descargó completo
         run: |
           echo "--- Contenido de wwwroot recién clonado ---"
-          find TheaterCue/TheaterCue/wwwroot -maxdepth 3
+          find TheaterCue/wwwroot -maxdepth 3
           echo ""
           echo "--- ¿index.html existe? ---"
-          if [ -f "TheaterCue/TheaterCue/wwwroot/index.html" ]; then
+          if [ -f "TheaterCue/wwwroot/index.html" ]; then
             echo "SÍ existe. Primeras líneas:"
-            head -5 TheaterCue/TheaterCue/wwwroot/index.html
+            head -5 TheaterCue/wwwroot/index.html
           else
             echo "NO existe - el checkout no lo trajo."
           fi
