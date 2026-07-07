@@ -99,6 +99,7 @@
     private bool _seekLocked = true;
     private bool _isEditing = false;
     private bool _confirmRemove = false;
+    private bool _isFading = false;
     private TimeSpan _seekPreviewTime = TimeSpan.Zero;
     private string _filePath = string.Empty;
     private string _trackName = string.Empty;
@@ -150,7 +151,7 @@
                 _peakPercent = Math.Min(_snapshot.PeakLevel * 100 * 3, 100);
                 _rmsPercent  = Math.Min(_snapshot.RmsLevel * 100 * 3, 100);
 
-                if (_snapshot.State == PlaybackState.Playing)
+                if (_snapshot.State == PlaybackState.Playing && _isFading)
                     _volume = _snapshot.EnvelopeVolume;
 
                 await InvokeAsync(StateHasChanged);
@@ -210,6 +211,7 @@
         ]);
         AudioEngine.SetEnvelope(Track.Id, envelope);
         AudioEngine.SetManualVolume(Track.Id, 1.0f);
+        _isFading = true;
     }
 
     private void OnFadeOut()
@@ -222,6 +224,7 @@
         ]);
         AudioEngine.SetEnvelope(Track.Id, envelope);
         AudioEngine.SetManualVolume(Track.Id, 1.0f);
+        _isFading = true;
     }
 
     private void OnVolumeInput(ChangeEventArgs e)
@@ -232,6 +235,7 @@
             out var v))
         {
             _volume = v;
+            _isFading = false;
             AudioEngine.SetEnvelope(Track.Id, VolumeEnvelope.Empty);
             AudioEngine.SetManualVolume(Track.Id, _volume);
         }
