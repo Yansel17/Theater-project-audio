@@ -22,16 +22,16 @@
                     @_snapshot.Duration.ToString(@"mm\:ss")
                 </span>
                 <span class="envelope-modal-time__state envelope-modal-time__state--@_snapshot.State.ToString().ToLower()">
-                    @(_snapshot.State switch {
-                        PlaybackState.Playing  => "▶",
-                        PlaybackState.Paused   => "⏸",
-                        _                      => "⏹"
-                    })
+                    <i class="bi @(_snapshot.State switch {
+                        PlaybackState.Playing => "bi-play-fill",
+                        PlaybackState.Paused   => "bi-pause-fill",
+                        _                      => "bi-stop-fill"
+                    })"></i>
                 </span>
             </div>
 
-            <button @onclick="OnClearEnvelope">🗑 Limpiar</button>
-            <button class="modal-close" @onclick="OnClose">✕ Cerrar</button>
+            <button @onclick="OnClearEnvelope"><i class="bi bi-trash-fill"></i> Limpiar</button>
+            <button class="modal-close" @onclick="OnClose"><i class="bi bi-x-lg"></i> Cerrar</button>
         </div>
 
         <!-- ── Canvas SVG ── -->

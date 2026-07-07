@@ -6,7 +6,7 @@
 
 <div class="cue-card cue-card--@_snapshot.State.ToString().ToLower()">
     <div class="cue-card__header">
-        <div class="cue-card__drag-handle" title="Arrastrar pista">⋮⋮</div>
+        <div class="cue-card__drag-handle" title="Arrastrar pista"><i class="bi bi-grip-vertical"></i></div>
         @if (_isEditing)
         {
             <input class="cue-card__name-input"
@@ -18,7 +18,7 @@
         else
         {
             <span class="cue-card__name">@_trackName</span>
-            <button class="btn-edit" title="Editar nombre" @onclick="OnNameEdit">✏</button>
+            <button class="btn-edit" title="Editar nombre" @onclick="OnNameEdit"><i class="bi bi-pencil"></i></button>
         }
         <span class="cue-card__time">
             @((_isSeeking ? _seekPreviewTime : _snapshot.CurrentTime).ToString(@"mm\:ss")) /
@@ -36,7 +36,7 @@
                @onchange="OnSeekCommit" />
         <button @onclick="() => _seekLocked = !_seekLocked"
                 title="@(_seekLocked ? "Desbloquear posición" : "Bloquear posición")">
-            @(_seekLocked ? "🔒" : "🔓")
+            <i class="bi @(_seekLocked ? "bi-lock-fill" : "bi-unlock-fill")"></i>
         </button>
     </div>
 
@@ -47,23 +47,23 @@
 
     @if (_loadError is not null)
     {
-        <div class="cue-card__error">⚠ @_loadError</div>
+        <div class="cue-card__error"><i class="bi bi-exclamation-triangle-fill"></i> @_loadError</div>
     }
 
     <div class="cue-card__controls">
         <button title="Editor de automatización — Funcionalidad en desarrollo"
                 disabled="true"
                 style="opacity: 0.4; cursor: not-allowed;">
-            📈
+            <i class="bi bi-graph-up"></i>
         </button>
-        <button title="Eliminar pista" @onclick="() => _confirmRemove = true">🗑</button>
-        <button title="Cargar archivo de audio" @onclick="OnPickFile">📂</button>
+        <button title="Eliminar pista" @onclick="() => _confirmRemove = true"><i class="bi bi-trash-fill"></i></button>
+        <button title="Cargar archivo de audio" @onclick="OnPickFile"><i class="bi bi-folder2-open"></i></button>
         <button title="@(_snapshot.State == PlaybackState.Playing ? "Pausar" : "Reproducir")" @onclick="OnPlayPause">
-            @(_snapshot.State == PlaybackState.Playing ? "⏸" : "▶")
+            <i class="bi @(_snapshot.State == PlaybackState.Playing ? "bi-pause-fill" : "bi-play-fill")"></i>
         </button>
-        <button title="Detener" @onclick="OnStop">⏹</button>
-        <button title="Fade In (@(ShowState.GlobalFadeInSeconds)s)" @onclick="OnFadeIn">↑ Fade In</button>
-        <button title="Fade Out (@(ShowState.GlobalFadeOutSeconds)s)" @onclick="OnFadeOut">↓ Fade Out</button>
+        <button title="Detener" @onclick="OnStop"><i class="bi bi-stop-fill"></i></button>
+        <button title="Fade In (@(ShowState.GlobalFadeInSeconds)s)" @onclick="OnFadeIn"><i class="bi bi-arrow-up-circle"></i> Fade In</button>
+        <button title="Fade Out (@(ShowState.GlobalFadeOutSeconds)s)" @onclick="OnFadeOut"><i class="bi bi-arrow-down-circle"></i> Fade Out</button>
     </div>
 
     <div class="cue-card__volume">
