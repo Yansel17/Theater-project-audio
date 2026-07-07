@@ -13,7 +13,7 @@
         <button title="Agregar pista de música" @onclick="() => OnAddTrack(0)">＋ Música</button>
         <button title="Agregar efecto de sonido" @onclick="() => OnAddTrack(1)">＋ SFX</button>
         <button title="Guardar proyecto" @onclick="OnSaveProject">💾 Guardar</button>
-        <button title="Abrir proyecto" @onclick="OnOpenProject">📂 Abrir</button>
+        <button title="Abrir proyecto" @onclick="OnOpenProject"><i class="bi bi-folder2-open"></i> Abrir</button>
         <a href="/manual" class="btn" title="Manual de usuario">?</a>
         <button @onclick="() => welcomeGuide?.Show()">Guía</button>
         <WelcomeGuide @ref="welcomeGuide" />
