@@ -63,10 +63,14 @@ jobs:
 
       - name: Firmar ad-hoc el .app (sin cuenta de Apple Developer)
         run: |
-          APP_PATH=$(find TheaterCue/bin/Release -name "*.app" -maxdepth 7 | head -n 1)
-          echo "App encontrada en: $APP_PATH"
-          if [ -z "$APP_PATH" ]; then
-            echo "No se encontró ningún .app - revisa el paso de diagnóstico anterior"
+          APP_PATH="TheaterCue/bin/Release/net10.0-maccatalyst/TheaterCue.app"
+          echo "App esperada en: $APP_PATH"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "No se encontró el .app universal en la ruta esperada - revisa el paso de diagnóstico anterior"
+            exit 1
+          fi
+          if [ ! -f "$APP_PATH/Contents/Resources/wwwroot/index.html" ]; then
+            echo "ADVERTENCIA: index.html no está en Resources/wwwroot - el empaquetado de Blazor sigue incompleto"
             exit 1
           fi
           codesign --force --deep --sign - "$APP_PATH"
